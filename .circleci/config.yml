@@ -1,0 +1,32 @@
+version: 2.1
+orbs:
+  buildpacks: buildpacks/pack@0.2.4
+
+workflows:
+  main:
+    jobs:
+      - buildpacks/build:
+          builder: paketobuildpacks/builder:tiny
+          buildpacks: docker.io/paketocommunity/rust
+          image-name: rust-sample-app
+          version: 0.26.0
+
+      - publish:
+          context:
+            - hub.docker.com
+          requires:
+            - buildpacks/build
+
+jobs:
+  publish:
+    machine:
+      image: ubuntu-2004:current
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          command: |
+            docker load -i /tmp/workspace/images/image.tgz
+            echo "${DOCKER_PASSWORD}" | docker login --username ${DOCKER_USERNAME} --password-stdin
+            docker tag rust-sample-app "${DOCKER_USERNAME}"/rust-sample-app:latest
+            docker push "${DOCKER_USERNAME}"/rust-sample-app:latest
